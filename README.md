@@ -8,49 +8,48 @@ Overview
 
 When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
-
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
-
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
+In this project we will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
 
 
-Creating a Great Writeup
----
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
+### 1. Description of the pipeline used to draw the lanes and to extrapolate them
 
-1. Describe the pipeline
+Below is a brief description of my pipeline. 
+First, I convert the input images to gray scale. Then i equalize the histogram of intensities of the gray scale images using equalizeHist() function. This is just to make sure that there are no uneven lightinig conditions. Then i apply Gaussian Filter with Kernel size 5 just to filter out some noises and make it ready for Canny algorithm. Then i use the Canny Edge detection algorithm with low_threshold set to 200 and high_threshold set to 400. Then i apply a polygon mask to seperate out the region of interest. the vertices values are: [[(0,540),(505, 310), (505, 310), (860,540)]]. Then i use Hough transform to draw the lines based on the line shaped edges detected. The parameters are: rho=1, theta = 1rad, threshold = 15, min_line_length = 10, and max_line_gap = 15. 
+I had obtained  the images with Red coloured lines drawn on both the left and the right lanes. when either one was them was discontinous, the lines was also discontinuous, and we have to join them to make it as a single line. I have also saved the output images in the test_images_output folder.
 
-2. Identify any shortcomings
+In order to draw a single line on the left and right lanes, I modified the draw_lines() function as follows
 
-3. Suggest possible improvements
+1. within the main For Loop i first calculate the slope using: -((y2 - y1)/(x2 - x1)) (i invert the sign just to make sure that left lane line has the positive slope and the right lane line has the negative slope.
+2. if the slope is above a threshold (say : 0.55, just to make sure that there are no horizontal lines visible), then it is part of left lane,and now i start to collect the y values of the lines detected ( i need to find the minimum value of that to find the top most part in a frame / image).
+3. Additionally i also append the slope values to an empty array: slope_pos_array[] (just to average the same, and use the average slope at the end of the algorithm). 
+4. then knowing that the y intercept of the left lane at the bottom of the image, i find the x intercept of the same at the bottom using the above calculated slope. Equation: intercept_x = x1 + ((y1 - img.shape[1])/slope). 
+5. then i append the intercept to an array: left_lane_x (and i would average the same to know the average position of the lane).
+6. the above said steps are repeated when the slope is negative, (i.e, for the Right Lane).
+7. after the For Loop, i average the arrays, left_lane_x, and right_lane_x to get the x intercepts at the bottom for each lane.
+8. Then i get the Minimum of left_lane_y and right_lane_y to get the minimum y positions of each lane to extrapolate. 
+9. Then i calculate the average of slopes for both the left and right lanes from the arrays stored.
+10. now with the above calculated values i get the x coordinate of the top points of the both the left and right lanes.
+11. with all the above information i use: cv2.line, and x1,y1 and x2,y2 are now replaced with above calculated average infos as below
 
-We encourage using images in your writeup to demonstrate how your pipeline works.  
+    #line with positive slope..
+    cv2.line(img, (int(left_lane_x_avg), img.shape[0]), (int(left_lane_x_max), left_lane_y_min), color, thickness)
+    #line with negative slope..
+    cv2.line(img, (int(right_lane_x_min), right_lane_y_min), (int(right_lane_x_avg), img.shape[0]), color, thickness)
 
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
+If you'd like to include images to show how the pipeline works, here is how to include an image: 
 
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
+![alt text][image1]
 
 
-The Project
----
+### 2. Potential Short commings of the PipeLine
 
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you should install the starter kit to get started on this project. ##
 
-**Step 1:** Set up the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) if you haven't already.
+1. One Potential Short comming is : i use a fixed slope threshold: 0.55 for both left and righ lanes.. This is kept assuming that camera position and caliberation is fixed.. now when the Camera is moved to another position then, this would not work. 
+2. another potential shortcomming is this wont work when the road does not have a lane marking. ???
 
-**Step 2:** Open the code in a Jupyter Notebook
 
-You will complete the project code in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out [Udacity's free course on Anaconda and Jupyter Notebooks](https://classroom.udacity.com/courses/ud1111) to get started.
+### 3. Possible future improvements
 
-Jupyter is an Ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, use terminal to navigate to your project directory and then run the following command at the terminal prompt (be sure you've activated your Python 3 carnd-term1 environment as described in the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) installation instructions!):
-
-`> jupyter notebook`
-
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
-
-**Step 3:** Complete the project and submit both the Ipython notebook and the project writeup
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-
+Two possible improvements:
+1. the input to canny can be improved a bit, (to improve the detection of Lane lines). Maybe we can capitalize on HSV Colour spaces, and or calculate the texture of the image near the Lane segments and Extract the lane lines alone with Image segmentation techniques. 
+2. create curved lines that fit to the Curved lanes. 
